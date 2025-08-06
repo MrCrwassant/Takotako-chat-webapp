@@ -1,103 +1,139 @@
-// === Import des modules nécessaires ===
-const express = require("express");
-const http = require("http");
-const socketIO = require("socket.io");
-const sqlite3 = require("sqlite3").verbose();
-const crypto = require("crypto");
-const path = require("path");
-const { networkInterfaces } = require("os");
+import express from "express";
+import http from "http";
+import { Server } from "socket.io";
+import bcrypt from "bcrypt";
+import cookieParser from "cookie-parser";
+import bodyParser from "body-parser";
 
-// === Création de l'app Express et du serveur HTTP ===
 const app = express();
 const server = http.createServer(app);
-const io = socketIO(server);
+const io = new Server(server);
 
-// === Middleware pour servir les fichiers statiques ===
-app.use(express.static(path.join(__dirname, "public")));
+const PORT = process.env.PORT || 3000;
 
-// === Configuration de la DB SQLite ===
-const db = new sqlite3.Database("./db.sqlite");
+app.use(express.static("public"));
+app.use(bodyParser.json());
+app.use(cookieParser());
 
-// Création de la table messages si elle n'existe pas
-db.run(`CREATE TABLE IF NOT EXISTS messages (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    pseudo TEXT,
-    message TEXT,
-    timestamp TEXT
-)`);
+// Données en mémoire (à remplacer par DB plus tard)
+const usersDB = {}; // username => { displayName, passwordHash }
+const connectedUsers = new Map(); // socket.id => { username, displayName }
+const messages = []; // derniers 25 messages
 
-// === Liste des utilisateurs connectés (en mémoire) ===
-let connectedUsers = {};
+const bannedUsernames = [
+  "croissant", "crwassant", "mrcrwassant", "mrcroissant",
+  "admin", "administrateur", "banni", "interdit"
+];
 
-// === Fonction pour générer un ID unique à partir de l'IP + random salt ===
-function generateUniqueId(ip) {
-    return crypto.createHash('sha256').update(ip + Date.now() + Math.random()).digest('hex').slice(0, 16);
+// Utils
+function isBannedUsername(name) {
+  return bannedUsernames.includes(name.toLowerCase());
 }
 
-// === Récupérer l'adresse IP du socket ===
-function getClientIp(socket) {
-    return socket.handshake.address.replace(/^.*:/, ''); // On nettoie l'IPv6
-}
+// Routes API
+app.post("/api/register", async (req, res) => {
+  const { username, password, displayName } = req.body;
+  if (!username || !password || !displayName) return res.json({ success: false, message: "Champs manquants." });
+  if (isBannedUsername(username)) return res.json({ success: false, message: "Nom d'utilisateur interdit." });
+  if (usersDB[username]) return res.json({ success: false, message: "Nom d'utilisateur déjà pris." });
 
-// === Socket.IO ===
-io.on("connection", (socket) => {
-    const ip = getClientIp(socket);
-    const userId = generateUniqueId(ip);
-    let userPseudo = null;
+  // Validation simple côté serveur
+  if (!/^[a-z0-9]{1,18}$/.test(username)) return res.json({ success: false, message: "Nom d'utilisateur invalide." });
+  if (!/^[A-Za-z0-9!?\(\)\[\]:;, ]{1,14}$/.test(displayName)) return res.json({ success: false, message: "Nom d'affichage invalide." });
+  if (password.length < 8 || password.length > 64) return res.json({ success: false, message: "Mot de passe invalide." });
 
-    console.log(`Nouvelle connexion depuis IP: ${ip}`);
+  const hash = await bcrypt.hash(password, 10);
+  usersDB[username] = { displayName, passwordHash: hash };
+  console.log(`[REGISTER] ${username}`);
 
-    // Récupère les 25 derniers messages depuis la DB et les envoie au nouvel utilisateur
-    db.all("SELECT * FROM messages ORDER BY id DESC LIMIT 25", [], (err, rows) => {
-        if (!err) {
-            socket.emit("load_messages", rows.reverse());
-        }
-    });
-
-    // Réception du pseudo
-    socket.on("set_pseudo", (pseudo) => {
-        const forbidden = ["croissant", "crwassant", "mrcrwassant", "mrcroissant", "admin", "administrateur"];
-        if (forbidden.includes(pseudo.toLowerCase())) {
-            socket.emit("pseudo_error", "Ce pseudo est interdit.");
-            return;
-        }
-        userPseudo = pseudo;
-        connectedUsers[userId] = { pseudo: userPseudo };
-        io.emit("update_users", connectedUsers);
-        console.log(`Utilisateur connecté: ${userPseudo} (${userId})`);
-    });
-
-    // Réception d'un message global
-    socket.on("send_message", (message) => {
-        if (!userPseudo) return; // On ignore si l'utilisateur n'a pas choisi de pseudo
-        const timestamp = new Date().toLocaleTimeString();
-
-        // Sauvegarde en DB
-        db.run(`INSERT INTO messages (pseudo, message, timestamp) VALUES (?, ?, ?)`, [userPseudo, message, timestamp]);
-
-        // Envoie à tous les clients
-        io.emit("new_message", { pseudo: userPseudo, message, timestamp });
-    });
-
-    // Réception d'un message privé
-    socket.on("send_private", ({ targetId, message }) => {
-        const timestamp = new Date().toLocaleTimeString();
-        if (connectedUsers[targetId]) {
-            io.to(targetId).emit("private_message", { from: userPseudo, message, timestamp });
-            socket.emit("private_message", { from: "Moi", message, timestamp });
-        }
-    });
-
-    // Déconnexion
-    socket.on("disconnect", () => {
-        delete connectedUsers[userId];
-        io.emit("update_users", connectedUsers);
-        console.log(`Utilisateur déconnecté: ${userPseudo} (${userId})`);
-    });
+  res.json({ success: true });
 });
 
-// === Lancement du serveur ===
-const PORT = process.env.PORT || 3000;
+app.post("/api/login", async (req, res) => {
+  const { username, password } = req.body;
+  if (!username || !password) return res.json({ success: false, message: "Champs manquants." });
+
+  const user = usersDB[username];
+  if (!user) return res.json({ success: false, message: "Utilisateur inconnu." });
+
+  const match = await bcrypt.compare(password, user.passwordHash);
+  if (!match) return res.json({ success: false, message: "Mot de passe incorrect." });
+
+  console.log(`[LOGIN] ${username}`);
+  res.json({ success: true, displayName: user.displayName });
+});
+
+// Socket.io
+io.on("connection", (socket) => {
+  console.log(`Socket connecté: ${socket.id}`);
+
+  socket.on("auth", ({ username }) => {
+    const user = usersDB[username];
+    if (!user) {
+      socket.emit("auth-error", "Utilisateur non trouvé");
+      socket.disconnect();
+      return;
+    }
+    connectedUsers.set(socket.id, { username, displayName: user.displayName });
+    updateUsersList();
+    socket.emit("chat-history", messages);
+    console.log(`[SOCKET] ${username} connecté`);
+  });
+
+  socket.on("chat-message", (msg) => {
+    const user = connectedUsers.get(socket.id);
+    if (!user) return;
+
+    const timestamp = new Date().toISOString();
+    const messageObj = {
+      from: user.username,
+      displayName: user.displayName,
+      content: msg,
+      timestamp,
+    };
+
+    messages.push(messageObj);
+    if (messages.length > 25) messages.shift();
+
+    io.emit("chat-message", messageObj);
+  });
+
+  socket.on("private-message", ({ toUsername, content }) => {
+    const fromUser = connectedUsers.get(socket.id);
+    if (!fromUser) return;
+
+    for (const [sockId, user] of connectedUsers.entries()) {
+      if (user.username === toUsername) {
+        io.to(sockId).emit("private-message", {
+          fromUsername: fromUser.username,
+          fromDisplayName: fromUser.displayName,
+          content,
+          timestamp: new Date().toISOString(),
+        });
+        socket.emit("private-message-sent", { toUsername, content });
+        break;
+      }
+    }
+  });
+
+  socket.on("disconnect", () => {
+    const user = connectedUsers.get(socket.id);
+    if (user) {
+      console.log(`[SOCKET] ${user.username} déconnecté`);
+      connectedUsers.delete(socket.id);
+      updateUsersList();
+    }
+  });
+});
+
+function updateUsersList() {
+  const userList = [];
+  connectedUsers.forEach((user) => {
+    userList.push({ username: user.username, displayName: user.displayName });
+  });
+  io.emit("users-list", userList);
+}
+
 server.listen(PORT, () => {
-    console.log(`Serveur démarré sur le port ${PORT}`);
+  console.log(`Serveur lancé sur http://localhost:${PORT}`);
 });
