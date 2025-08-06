@@ -1,31 +1,69 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chat en ligne</title>
-    <link rel="stylesheet" href="style.css">
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Takotako Chat - Le chat de ouf</title>
+<link rel="stylesheet" href="style.css" />
 </head>
 <body>
-    <div class="chat-container">
-        <div class="chat-main">
-            <div class="messages" id="messages"></div>
-            <div class="input-container">
-                <input type="text" id="pseudo" placeholder="Votre pseudo">
-                <input type="text" id="message" placeholder="Votre message">
-                <button id="send">Envoyer</button>
-            </div>
-        </div>
-        <div class="users-container">
-            <h3>Utilisateurs connectés</h3>
-            <ul id="users"></ul>
-            <div id="private-chat">
-                <h4>Messages privés</h4>
-                <div id="private-messages"></div>
-            </div>
-        </div>
+
+<!-- Popup inscription / connexion -->
+<div id="auth-popup" class="popup-overlay">
+  <div class="popup-content">
+    <h2>Se connecter ou s'inscrire</h2>
+    <div id="auth-forms">
+      <form id="loginForm">
+        <h3>Connexion</h3>
+        <input type="text" id="loginUsername" placeholder="Nom d'utilisateur" required />
+        <input type="password" id="loginPassword" placeholder="Mot de passe" required />
+        <button type="submit">Se connecter</button>
+      </form>
+      <form id="registerForm">
+        <h3>Inscription</h3>
+        <input type="text" id="registerDisplayName" placeholder="Nom d'affichage" required maxlength="14" />
+        <input type="text" id="registerUsername" placeholder="Nom d'utilisateur" required maxlength="18" />
+        <input type="password" id="registerPassword" placeholder="Mot de passe" required minlength="8" maxlength="64" />
+        <button type="submit">S'inscrire</button>
+      </form>
     </div>
-    <script src="/socket.io/socket.io.js"></script>
-    <script src="script.js"></script>
+  </div>
+</div>
+
+<!-- Chat principal -->
+<div id="chat-app" class="hidden">
+  <aside id="userListContainer">
+    <h3>Utilisateurs connectés</h3>
+    <ul id="usersList"></ul>
+  </aside>
+
+  <main id="chatContainer">
+    <ul id="messagesList"></ul>
+    <form id="messageForm">
+      <input type="text" id="messageInput" placeholder="Écris un message..." autocomplete="off" />
+      <button type="submit">Envoyer</button>
+    </form>
+  </main>
+
+  <aside id="contactsContainer">
+    <h3>Contacts</h3>
+    <select id="contactsDropdown">
+      <option value="">-- Pas de contact --</option>
+    </select>
+  </aside>
+</div>
+
+<!-- Notification privée -->
+<div id="privateNotif" class="private-notif hidden">
+  <p><span id="notifSender"></span> vous a envoyé un message !</p>
+  <button id="ignoreBtn">Ignorer</button>
+  <button id="readBtn">Lire</button>
+</div>
+
+<!-- Pastille notif ratée -->
+<div id="missedNotif" class="missed-notif hidden">!</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="script.js"></script>
 </body>
 </html>
