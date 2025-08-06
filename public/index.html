@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat en ligne</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="chat-container">
+        <div class="chat-main">
+            <div class="messages" id="messages"></div>
+            <div class="input-container">
+                <input type="text" id="pseudo" placeholder="Votre pseudo">
+                <input type="text" id="message" placeholder="Votre message">
+                <button id="send">Envoyer</button>
+            </div>
+        </div>
+        <div class="users-container">
+            <h3>Utilisateurs connectés</h3>
+            <ul id="users"></ul>
+            <div id="private-chat">
+                <h4>Messages privés</h4>
+                <div id="private-messages"></div>
+            </div>
+        </div>
+    </div>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
