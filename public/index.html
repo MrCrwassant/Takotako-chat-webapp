@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TakoTako Chat</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="auth-popup" class="popup">
+    <h2>Bienvenue !</h2>
+    <button onclick="showForm('login')">Se connecter</button>
+    <button onclick="showForm('signup')">S'inscrire</button>
+  </div>
+
+  <div id="login-form" class="form hidden">
+    <h2>Connexion</h2>
+    <input type="text" id="login-username" placeholder="Nom d'utilisateur">
+    <input type="password" id="login-password" placeholder="Mot de passe">
+    <button onclick="login()">Connexion</button>
+  </div>
+
+  <div id="signup-form" class="form hidden">
+    <h2>Inscription</h2>
+    <input type="text" id="signup-displayname" placeholder="Nom d'affichage">
+    <input type="text" id="signup-username" placeholder="Nom d'utilisateur">
+    <input type="password" id="signup-password" placeholder="Mot de passe">
+    <button onclick="signup()">Inscription</button>
+  </div>
+
+  <div id="chat" class="hidden">
+    <ul id="messages"></ul>
+    <input id="message-input" autocomplete="off" /><button onclick="sendMessage()">Envoyer</button>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>

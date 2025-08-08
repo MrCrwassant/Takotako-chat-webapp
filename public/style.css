@@ -1,0 +1,36 @@
+body {
+}
+
+.popup, .form {
+  background: white;
+  padding: 2em;
+  margin: auto;
+  border-radius: 8px;
+  width: 300px;
+  box-shadow: 0 0 10px rgba(0,0,0,0.1);
+}
+
+input {
+  margin: 0.5em 0;
+  padding: 0.5em;
+  width: 100%;
+}
+
+button {
+  padding: 0.5em 1em;
+  margin-top: 1em;
+  cursor: pointer;
+}
+
+#messages {
+  list-style: none;
+  padding: 0;
+}
+
+#messages li {
+  margin: 0.5em 0;
+  background: #e0e0e0;
+  padding: 0.5em;
+  border-radius: 4px;
+  text-align: left;
+}
