@@ -1,5 +1,4 @@
 import express from 'express';
-}
 
 app.post('/api/signup', (req, res) => {
   const { displayName, username, password } = req.body;
@@ -53,4 +52,5 @@ io.on('connection', (socket) => {
 
 server.listen(PORT, () => {
   console.log('Serveur lancé sur le port', PORT);
+
 });
